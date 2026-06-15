@@ -1,0 +1,116 @@
+\chapter*{Instructor Guide for Chapter 2 Exercises}
+
+This instructor guide provides solution sketches for Chapter~2. It is intended for instructors and teaching assistants and should not be distributed with the student-facing chapter unless solutions are desired.
+
+\section*{Conceptual Exercises}
+
+\subsection*{Exercise 1: Model-free versus model-based reinforcement learning}
+Model-free reinforcement learning learns a policy, value function, or actor--critic pair directly from interaction data without explicitly learning a predictive dynamics model. It is attractive when a simulator is available and the environment is difficult to model analytically, for example discrete-control benchmarks or simulated locomotion. Model-based reinforcement learning learns or uses a model of dynamics, rewards, or latent transitions and uses that model for prediction, planning, imagined rollouts, or policy improvement. It is attractive when interaction is expensive and a useful model exists or can be learned, such as robotic control, spacecraft guidance, or industrial control with a digital twin.
+
+\subsection*{Exercise 2: Value-based, policy-gradient, and actor--critic methods}
+A value-based method learns an action-value function such as $Q_\theta(s,a)$ and usually selects actions by greedily or approximately greedily maximizing this value, possibly with exploration. A policy-gradient method learns a parameterized policy $\pi_\theta(a\mid s)$ and selects actions by sampling from the policy during training or by using a deterministic evaluation rule. An actor--critic method learns both an actor, which selects actions, and a critic, which estimates values or advantages used to improve the actor.
+
+\subsection*{Exercise 3: Offline RL versus off-policy RL}
+Offline RL is not merely off-policy RL with a large replay buffer because the dataset is fixed. Online off-policy learning can continue collecting new transitions, whereas offline RL cannot repair missing coverage. If the learned policy chooses actions outside dataset support, the value function or model must extrapolate. Such extrapolation error can make unsupported actions appear falsely valuable, motivating conservative, behavior-constrained, or uncertainty-aware offline RL methods.
+
+\subsection*{Exercise 4: Deterministic and stochastic policies}
+A deterministic policy maps each state to one action, $a=\mu_\theta(s)$, and is efficient for deployment. A stochastic policy represents a distribution $\pi_\theta(a\mid s)$ and is useful for exploration, entropy regularization, robustness, and ambiguous decisions. Even if the final deployed controller is nearly deterministic, stochastic policies are often preferable during learning because they explore and produce useful gradient estimates.
+
+\subsection*{Exercise 5: Partial observability}
+Partial observability is not solved by simply increasing network size because the current observation may omit information needed for decision-making. A larger feedforward model cannot infer absent information without useful temporal or auxiliary evidence. Possible remedies include observation histories, recurrent networks, attention over trajectories, state estimators, filters, belief-state models, or additional sensors.
+
+\section*{Mathematical and Implementation Exercises}
+
+\subsection*{Exercise 6: Empirical Q-learning loss}
+For minibatch $\mathcal{B}=\{(s_i,a_i,r_i,s_i^+)\}_{i=1}^m$,
+\[
+\mathcal{L}(\theta)=\frac{1}{m}\sum_{i=1}^{m}\left(Q_\theta(s_i,a_i)-y_i\right)^2,
+\qquad
+ y_i=r_i+\gamma\max_{\tilde{a}}Q_{\bar{\theta}}(s_i^+,\tilde{a}).
+\]
+During the gradient update, $Q_\theta(s_i,a_i)$ is differentiated with respect to $\theta$. The sampled data and $y_i$ are treated as fixed targets. In implementation, the target is detached so gradients do not flow through $Q_{\bar\theta}$.
+
+\subsection*{Exercise 7: Soft target update}
+For $\bar{\theta}\leftarrow\tau\theta+(1-\tau)\bar{\theta}$, as $\tau\to 1$ the target network becomes nearly identical to the online network; at $\tau=1$ it is a hard copy. As $\tau\to 0$, the target network changes very slowly; at $\tau=0$ it is frozen. Large $\tau$ improves responsiveness but weakens stabilization, while small $\tau$ improves stability but can make targets stale.
+
+\subsection*{Exercise 8: Stored log probabilities}
+On-policy implementations store $\log\pi_{\theta_{\mathrm{old}}}(a_t\mid s_t)$ at data collection time because the policy may change before the loss is computed. Recomputing log probabilities after an update gives probabilities under a different policy. For PPO-style methods, the importance ratio
+\[
+\rho_t(\theta)=\frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\mathrm{old}}}(a_t\mid s_t)}
+\]
+requires the old policy probability in the denominator.
+
+\subsection*{Exercise 9: Dynamics-model loss}
+A supervised dynamics loss for continuous states is
+\[
+\mathcal{L}_{\mathrm{dyn}}(\phi)=\frac{1}{m}\sum_{i=1}^{m}\left\|f_\phi(s_i,a_i)-s_i^+\right\|_2^2.
+\]
+If reward is also learned, add a reward-prediction term:
+\[
+\mathcal{L}_{\mathrm{model}}(\phi)=\frac{1}{m}\sum_{i=1}^{m}\left[\left\|f_\phi(s_i,a_i)-s_i^+\right\|_2^2+\lambda_r\left(\hat r_\phi(s_i,a_i)-r_i\right)^2\right].
+\]
+For stochastic models, a negative log-likelihood may replace squared error.
+
+\subsection*{Exercise 10: Increasing value estimates but decreasing return}
+Two common causes are overestimation bias and distribution shift. A critic may assign high values to unsupported or poorly estimated actions, and the actor may exploit these errors. Also, value estimates may improve under the replay-buffer distribution while the policy moves into regions where the critic is inaccurate. Other valid causes include reward misspecification, evaluation mismatch, reduced exploration, and nonstationary targets.
+
+\subsection*{Exercise 11: Numerical minibatch target computation}
+The targets are
+\[
+ y_1=1+0.95(1)(2.0)=2.90,
+\qquad
+ y_2=0+0.95(1)(1.0)=0.95,
+\qquad
+ y_3=-1+0.95(0)(0.5)=-1.00.
+\]
+The prediction errors are
+\[
+1.2-2.9=-1.7,
+\qquad
+0.4-0.95=-0.55,
+\qquad
+-0.1-(-1.0)=0.9.
+\]
+Thus the squared errors are $2.89$, $0.3025$, and $0.81$, and
+\[
+\mathcal{L}=\frac{2.89+0.3025+0.81}{3}=1.334166\ldots\approx 1.3342.
+\]
+
+\section*{Algorithm Selection Exercises}
+
+\subsection*{Exercise 12: Mobile robot}
+Continuous velocity commands suggest actor--critic continuous-control methods such as PPO, SAC, or TD3. Sparse rewards motivate curriculum learning, reward shaping, demonstrations, intrinsic motivation, hierarchical RL, or goal-conditioned learning. Since a simulator is available, simulation pretraining, model-based planning, or planning-assisted RL are also plausible. Safety precautions include collision constraints, action bounds, early termination on unsafe states, safety shields, domain randomization, stress testing, and conservative real-world fine-tuning.
+
+\subsection*{Exercise 13: Warehouse routing}
+Online DQN should not be the first choice because safe online exploration is unavailable. Behavior cloning is a strong first baseline because many logged trajectories exist. Offline RL is a reasonable next step if reward labels are available and dataset support is adequate. A practical sequence is behavior cloning, offline evaluation, then conservative or behavior-regularized offline RL if improvement beyond the rule-based controller is required.
+
+\subsection*{Exercise 14: UAV control}
+The most important task properties are continuous action space, real-time execution, partial observability, safety constraints, uncertainty from wind, communication delay, simulator availability, and robustness requirements. Recurrent policies, state estimators, robust evaluation, constrained RL, or model-based control may be needed. Algorithms requiring expensive online planning must be checked against timing constraints.
+
+\subsection*{Exercise 15: Spacecraft guidance}
+Return alone is insufficient because a high-return policy may violate terminal constraints, fuel limits, thrust limits, safety envelopes, or robustness requirements. Evaluation should include terminal position and velocity error, fuel or $\Delta v$, time of flight, constraint violations, failure rate, sensitivity to initial conditions and model perturbations, and comparison with classical guidance or trajectory-optimization baselines.
+
+\subsection*{Exercise 16: Multi-agent traffic control}
+Relevant branches include multi-agent RL, safe or constrained RL, robust and risk-sensitive RL, and fairness-aware evaluation. Average throughput alone hides tail failures. Evaluation should include worst-case delay, delay percentiles, queue lengths, intersection-level fairness, emergency-vehicle delay, spatial distribution of failures, and robustness to changing traffic demand.
+
+\subsection*{Exercise 17: Algorithms from major branches}
+Accept many correct choices. A representative answer is:
+\begin{center}
+\begin{tabular}{p{0.16\textwidth}p{0.15\textwidth}p{0.18\textwidth}p{0.18\textwidth}p{0.14\textwidth}p{0.14\textwidth}}
+\toprule
+Branch & Algorithm & Data & Learned object & Strength & Failure mode \\
+\midrule
+Value-based & DQN & Replay transitions & $Q_\theta(s,a)$ & Discrete control & Instability \\
+Policy-gradient & PPO & On-policy rollouts & Policy and value & Robust baseline & Sample inefficient \\
+Continuous control & SAC & Replay data & Stochastic actor and critics & Exploration & Critic error \\
+Model-based & MBPO & Real and model rollouts & Dynamics and policy/value & Sample efficient & Model bias \\
+World models & Dreamer-style & Sequences & Latent dynamics and policy & Imagination & Latent mismatch \\
+Imitation & Behavior cloning & Demonstrations & Supervised policy & Simple baseline & Covariate shift \\
+Offline RL & CQL & Fixed dataset & Conservative Q/policy & Reduces overestimation & Over-conservative \\
+Hierarchical RL & Options & Interaction data & Skills/options & Long-horizon behavior & Skill collapse \\
+Multi-agent RL & MAPPO & Multi-agent rollouts & Coordinated policies & Coordination & Nonstationarity \\
+Safe RL & CPO & Reward and cost data & Constrained policy & Explicit constraints & Over-conservatism \\
+Preference RL & RLHF/DPO & Preferences & Aligned policy/reward & Preference alignment & Reward hacking \\
+\bottomrule
+\end{tabular}
+\end{center}
